@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AR Earring Try-On MVP</title>
+  <style>
+    body, html {
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      background: #000;
+    }
+    video {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      object-fit: cover;
+    }
+    #earringL, #earringR {
+      position: absolute;
+      width: 80px;
+      height: auto;
+      pointer-events: none;
+      z-index: 5;
+    }
+    #nextBtn {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 10px 20px;
+      font-size: 16px;
+      background: #fff;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      z-index: 10;
+    }
+  </style>
+</head>
+<body>
+  <video id="video" autoplay playsinline muted></video>
+  <img id="earringL" src="earring1.png" />
+  <img id="earringR" src="earring1.png" />
+  <button id="nextBtn">Next Design</button>
+
+  <!-- MediaPipe Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/face_mesh.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+
+  <script>
+    const videoElement = document.getElementById('video');
+    const earringL = document.getElementById('earringL');
+    const earringR = document.getElementById('earringR');
+    const earringSources = ['earring1.png', 'earring2.png', 'earring3.png'];
+    let currentIndex = 0;
+
+    document.getElementById('nextBtn').onclick = () => {
+      currentIndex = (currentIndex + 1) % earringSources.length;
+      earringL.src = earringSources[currentIndex];
+      earringR.src = earringSources[currentIndex];
+    };
+
+    const faceMesh = new FaceMesh({
+      locateFile: file => `https://cdn.jsdelivr.net/npm/@mediapipe/face_mesh/${file}`
+    });
+
+    faceMesh.setOptions({
+      maxNumFaces: 1,
+      refineLandmarks: true,
+      minDetectionConfidence: 0.5,
+      minTrackingConfidence: 0.5
+    });
+
+    faceMesh.onResults(results => {
+      if (!results.multiFaceLandmarks || results.multiFaceLandmarks.length === 0) return;
+
+      const landmarks = results.multiFaceLandmarks[0];
+      const leftEar = landmarks[234];
+      const rightEar = landmarks[454];
+
+      const w = window.innerWidth;
+      const h = window.innerHeight;
+
+      if (leftEar && rightEar) {
+        earringL.style.left = `${leftEar.x * w - 40}px`;
+        earringL.style.top = `${leftEar.y * h}px`;
+
+        earringR.style.left = `${rightEar.x * w - 40}px`;
+        earringR.style.top = `${rightEar.y * h}px`;
+      }
+    });
+
+    const camera = new Camera(videoElement, {
+      onFrame: async () => {
+        await faceMesh.send({ image: videoElement });
+      },
+      width: 1280,
+      height: 720
+    });
+
+    camera.start();
+  </script>
+</body>
+</html>
